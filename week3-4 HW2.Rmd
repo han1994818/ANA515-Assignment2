@@ -1,0 +1,85 @@
+---
+title: "Ames Housing Data Analysis"
+author: "ChengHan Li (Alex)"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"  # 动态设置日期为“月 日, 年”格式
+output:
+  pdf_document:
+    toc: true  # 为 PDF 添加目录
+    highlight: tango
+    latex_engine: xelatex  # 使用 XeLaTeX 引擎以支持 Unicode 字符
+  html_document:
+    toc: true  # 为 HTML 添加目录
+    toc_float: true
+    theme: united  # 使用 Bootswatch 主题
+---
+
+
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+library(AmesHousing)
+library(ggplot2)
+library(caret)
+
+# 加载 Ames 房屋数据集
+data <- make_ames()
+head(data)
+
+# 描述性统计
+summary(data)
+options(max.print = 1000)
+
+# 定义小提琴图函数
+violin_plot <- function(data, names) {
+  par(mfrow = c(2, 4), mar = c(4, 4, 2, 1))
+  for (name in names) {
+    plot <- ggplot(data, aes_string(x = factor(1), y = paste0("`", name, "`"))) +
+      geom_violin(trim = FALSE) +
+      ggtitle(name) +
+      theme_minimal()
+    print(plot)
+  }
+}
+
+# 定义数据分布特征图函数
+dis_plot <- function(size, data, names) {
+  par(mfrow = size, mar = c(4, 4, 2, 1))
+  for (name in names) {
+    if (is.numeric(data[[name]])) {
+      plot <- ggplot(data, aes_string(x = paste0("`", name, "`"))) +
+        geom_histogram(aes(y = after_stat(count)), bins = 30, fill = "blue", alpha = 0.7) +
+        geom_density(aes(y = after_stat(density)), color = "red") +
+        ggtitle(name) +
+        theme_minimal()
+      print(plot)
+    } else {
+      plot <- ggplot(data, aes_string(x = paste0("`", name, "`"))) +
+        geom_bar(fill = "blue", alpha = 0.7) +
+        ggtitle(name) +
+        theme_minimal()
+      print(plot)
+    }
+  }
+}
+# 调用函数绘制小提琴图
+violin_plot(data, names(data))
+
+# 调用函数绘制数据分布特征图
+dis_plot(c(2, 4), data, c('Lot_Frontage', 'Lot_Area', 'Overall_Qual', 'Overall_Cond', 'Year_Built', 'Year_Remod_Add', 'Mas_Vnr_Area', 'BsmtFin_SF_1'))
+# 建立和评估线性回归模型
+if ("SalePrice" %in% names(data)) {
+    X <- data$Gr_Liv_Area
+    y <- data$SalePrice
+    trainIndex <- createDataPartition(y, p = .8, list = FALSE, times = 1)
+    X_train <- X[trainIndex]
+    X_test <- X[-trainIndex]
+    y_train <- y[trainIndex]
+    y_test <- y[-trainIndex]
+    model <- lm(y_train ~ X_train)
+    y_pred <- predict(model, data.frame(X_train = X_test))
+    mse <- mean((y_test - y_pred)^2)
+    r2 <- summary(model)$r.squared
+    cat("Mean Squared Error: ", mse, "\n")
+    cat("R^2 Score: ", r2, "\n")
+} else {
+    cat("The SalePrice column is missing from the dataset.\n")
+}
